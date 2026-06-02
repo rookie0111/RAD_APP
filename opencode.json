@@ -1,0 +1,64 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "opencode-go/qwen3.6-plus",
+    "permission": {
+    "bash": "ask"
+  },
+  "agent": {
+    "coder": {
+      "description": "主开发 Agent",
+      "mode": "primary",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.2,
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
+    "orchestrator": {
+      "description": "主页编排 Agent，管理需求分析、代码实现、测试验证的完整工作流，协调三个子 Agent 执行任务，处理重试和人工介入逻辑",
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.3,
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": true
+      }
+    },
+    "requirement-analyst": {
+      "description": "需求分析 Agent，分析用户需求并生成结构化需求文档，识别影响文件、参数变更、验收标准和约束条件",
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.2,
+      "tools": {
+        "write": true,
+        "edit": false,
+        "bash": true
+      }
+    },
+    "code-executor": {
+      "description": "代码执行 Agent，解析需求文档，实现代码变更，生成使用文档供测试 Agent 验证",
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.1,
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
+    "tester": {
+      "description": "测试 Agent，根据使用文档执行测试验证，生成测试报告，判断功能是否满足验收标准",
+      "mode": "subagent",
+      "model": "opencode-go/qwen3.6-plus",
+      "temperature": 0.1,
+      "tools": {
+        "write": true,
+        "edit": false,
+        "bash": true
+      }
+    }
+  }
+}
