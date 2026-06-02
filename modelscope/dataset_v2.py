@@ -8,6 +8,16 @@ from torchvision import transforms
 from .config import IMAGENET_MEAN, IMAGENET_STD, DEFAULT_IMAGE_SIZE, DEFAULT_CROP_SIZE, LAYER_CONFIGS
 
 
+_IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff'}
+
+
+def _collect_image_files(directory):
+    paths = []
+    for ext in _IMAGE_EXTS:
+        paths.extend(glob.glob(os.path.join(directory, f"*{ext}")))
+    return list(set(paths))
+
+
 class MVTecDataset(Dataset):
     """MVTec AD 数据集加载器"""
     
@@ -57,23 +67,14 @@ class MVTecDataset(Dataset):
         
         for defect_type in defect_types:
             if defect_type == 'good':
-                img_paths = glob.glob(os.path.join(img_path, defect_type, "*.png"))
-                img_paths.extend(glob.glob(os.path.join(img_path, defect_type, "*.jpg")))
-                img_paths.extend(glob.glob(os.path.join(img_path, defect_type, "*.jpeg")))
-                img_paths = list(set(img_paths))
+                img_paths = _collect_image_files(os.path.join(img_path, defect_type))
                 img_tot_paths.extend(img_paths)
                 gt_tot_paths.extend([0] * len(img_paths))
                 tot_labels.extend([0] * len(img_paths))
                 tot_types.extend(['good'] * len(img_paths))
             else:
-                img_paths = glob.glob(os.path.join(img_path, defect_type, "*.png"))
-                img_paths.extend(glob.glob(os.path.join(img_path, defect_type, "*.jpg")))
-                img_paths.extend(glob.glob(os.path.join(img_path, defect_type, "*.jpeg")))
-                img_paths = list(set(img_paths))
-                gt_paths = glob.glob(os.path.join(gt_path_root, defect_type, "*.png"))
-                gt_paths.extend(glob.glob(os.path.join(gt_path_root, defect_type, "*.jpg")))
-                gt_paths.extend(glob.glob(os.path.join(gt_path_root, defect_type, "*.jpeg")))
-                gt_paths = glob.glob(os.path.join(gt_path_root, defect_type, "*.png"))
+                img_paths = _collect_image_files(os.path.join(img_path, defect_type))
+                gt_paths = _collect_image_files(os.path.join(gt_path_root, defect_type))
                 img_paths.sort()
                 gt_paths.sort()
                 img_tot_paths.extend(img_paths)
@@ -163,17 +164,9 @@ class FeatureExtractor(torch.nn.Module):
 
 @torch.no_grad()
 def build_memory_bank(encoder, dataset, device, batch_size=32,
-                                layer_idx_list=None, num_workers=4):
+                      layer_idx_list=None, num_workers=4):
     if layer_idx_list is None:
         layer_idx_list = [3, 6, 9, 11]
-    """
-    构建多层特征记忆库
-    
-    返回:
-        layer_idx_list: 层索引列表
-        cls_banks: CLS token 记忆库列表
-        patch_banks: Patch token 记忆库列表
-    """
     encoder.eval()
     layer_idx_list = sorted(layer_idx_list)
     num_layers = len(layer_idx_list)

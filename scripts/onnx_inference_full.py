@@ -25,25 +25,21 @@ RAD ONNX 推理脚本 (Full Pipeline 模式)
 import os
 import sys
 
-# 抑制ONNX Runtime警告日志 (必须在import onnxruntime之前设置)
+_project_dir = os.path.dirname(os.path.abspath(__file__))
+_parent_dir = os.path.dirname(_project_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+from modelscope._path_setup import setup_sys_path
+setup_sys_path()
+
+# Suppress ONNX Runtime logging (must be set before importing onnxruntime)
 os.environ.setdefault('ORT_LOGGING_LEVEL', '3')
 
 import time
 import argparse
 import numpy as np
 from PIL import Image
-
-_project_dir = os.path.dirname(os.path.abspath(__file__))
-_parent_dir = os.path.dirname(_project_dir)
-_root_dir = os.path.dirname(_parent_dir)
-# RAD_APP must come before RAD_reproduction so local modelscope/ wins
-for p in [_project_dir, _parent_dir, _root_dir]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
-# Add RAD_reproduction for dinov3 package (append to end to avoid shadowing modelscope)
-_data_dir = os.path.join(_root_dir, 'RAD_reproduction')
-if _data_dir not in sys.path:
-    sys.path.append(_data_dir)
 
 from modelscope.config import IMAGENET_MEAN_NP, IMAGENET_STD_NP, DEFAULT_IMAGE_SIZE, DEFAULT_THRESHOLD
 

@@ -3,15 +3,11 @@ import os
 
 _project_dir = os.path.dirname(os.path.abspath(__file__))
 _parent_dir = os.path.dirname(_project_dir)
-_root_dir = os.path.dirname(_parent_dir)
-# RAD_APP must come before RAD_reproduction so local modelscope/ wins
-for p in [_project_dir, _parent_dir, _root_dir]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
-# Add RAD_reproduction for dinov3 package (append to end to avoid shadowing modelscope)
-_data_dir = os.path.join(_root_dir, 'RAD_reproduction')
-if _data_dir not in sys.path:
-    sys.path.append(_data_dir)
+if _parent_dir not in sys.path:
+    sys.path.insert(0, _parent_dir)
+
+from modelscope._path_setup import setup_sys_path
+setup_sys_path()
 
 from modelscope.config import (
     IMAGENET_MEAN, IMAGENET_STD, WEIGHT_SEARCH_PATHS, ENCODER_WEIGHT_MAP,
@@ -377,43 +373,12 @@ class DetectionThread(QThread):
             layer_indices = bank_data['layers']
             cls_banks = bank_data['cls_banks']
             patch_banks = bank_data['patch_banks']
-            
-            # 获取记忆库的维度信息来确定编码器类型
-            cls_dim = cls_banks[-1].shape[-1]  # 最高层CLS特征维度
-            self.log.emit(f"记忆库CLS维度: {cls_dim}")
-            
-            # 根据记忆库维度自动选择正确的编码器
-            if cls_dim == 768:
-                encoder_name = 'dinov3_vitb16'
-                self.log.emit("检测到ViT-Base记忆库，使用dinov3_vitb16")
-            elif cls_dim == 384:
-                encoder_name = 'dinov3_vits16'
-                self.log.emit("检测到ViT-Small记忆库，使用dinov3_vits16")
-            elif cls_dim == 1024:
-                encoder_name = 'dinov3_vitl16'
-                self.log.emit("检测到ViT-Large记忆库，使用dinov3_vitl16")
-            else:
-                # 使用用户指定的编码器
-                encoder_name = self.args['encoder_name']
-                self.log.emit(f"未知维度{cls_dim}，使用用户指定编码器: {encoder_name}")
-            
-            # 根据编码器类型选择权重路径，自动检测格式
-            weight_search_paths = _WEIGHT_SEARCH_PATHS
-            
-            weight_path = None
-            for p in weight_search_paths.get(encoder_name, []):
-                if os.path.exists(p):
-                    weight_path = p
-                    break
-            
-            if weight_path is None:
-                raise FileNotFoundError(f"找不到 {encoder_name} 的权重文件")
-            
-            # 加载模型 - 自动检测权重格式
-            from modelscope.loader import load_model as load_model_auto, detect_weight_format
-            fmt = detect_weight_format(weight_path)
+
+            from modelscope.loader import load_encoder_from_bank
+            encoder, encoder_name, fmt = load_encoder_from_bank(
+                bank_data, device=device, weight_search_paths=_WEIGHT_SEARCH_PATHS,
+            )
             self.log.emit(f"加载DINOv3模型: {encoder_name} (格式: {fmt})")
-            encoder = load_model_auto(model_name=encoder_name, weight_path=weight_path, device=device)
             encoder.to(device)
             encoder.eval()
             
@@ -564,45 +529,12 @@ class EvaluationThread(QThread):
             layer_indices = bank_data['layers']
             cls_banks = bank_data['cls_banks']
             patch_banks = bank_data['patch_banks']
-            
-            # 根据记忆库维度自动选择正确的编码器
-            cls_dim = cls_banks[-1].shape[-1]
-            self.log.emit(f"记忆库CLS维度: {cls_dim}")
-            
-            # 根据记忆库维度自动选择正确的编码器
-            cls_dim = cls_banks[-1].shape[-1]
-            self.log.emit(f"记忆库CLS维度: {cls_dim}")
-            
-            if cls_dim == 768:
-                encoder_name = 'dinov3_vitb16'
-                self.log.emit("检测到ViT-Base记忆库")
-            elif cls_dim == 384:
-                encoder_name = 'dinov3_vits16'
-                self.log.emit("检测到ViT-Small记忆库")
-            elif cls_dim == 1024:
-                encoder_name = 'dinov3_vitl16'
-                self.log.emit("检测到ViT-Large记忆库")
-            else:
-                encoder_name = self.args.get('encoder_name', 'dinov3_vitb16')
-                self.log.emit(f"未知维度{cls_dim}，使用编码器: {encoder_name}")
-            
-            # 根据编码器类型选择权重路径，自动检测格式
-            weight_search_paths = _WEIGHT_SEARCH_PATHS
-            
-            weight_path = None
-            for p in weight_search_paths.get(encoder_name, []):
-                if os.path.exists(p):
-                    weight_path = p
-                    break
-            
-            if weight_path is None:
-                raise FileNotFoundError(f"找不到 {encoder_name} 的权重文件")
-            
-            # 加载模型 - 自动检测权重格式
-            from modelscope.loader import load_model as load_model_auto, detect_weight_format
-            fmt = detect_weight_format(weight_path)
+
+            from modelscope.loader import load_encoder_from_bank
+            encoder, encoder_name, fmt = load_encoder_from_bank(
+                bank_data, device=device, weight_search_paths=_WEIGHT_SEARCH_PATHS,
+            )
             self.log.emit(f"加载模型: {encoder_name} (格式: {fmt})")
-            encoder = load_model_auto(model_name=encoder_name, weight_path=weight_path, device=device)
             encoder.to(device)
             encoder.eval()
             

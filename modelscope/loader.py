@@ -104,19 +104,7 @@ def is_modelscope_format(weight_path):
 
 
 def load_dinov3_model_safetensors(model_name, safetensors_path):
-    """Load a DINOv3 model from a ModelScope safetensors file.
-
-    This creates a model architecture that exactly matches the safetensors
-    naming convention (separate q/k/v projections, layer_scale1/lambda1, etc.)
-    and loads weights with strict matching.
-
-    Args:
-        model_name: One of 'dinov3_vits16', 'dinov3_vitb16', 'dinov3_vitl16'
-        safetensors_path: Path to the safetensors file.
-
-    Returns:
-        model with get_intermediate_layers() method compatible with RAD detector.
-    """
+    """Load a DINOv3 model from a ModelScope safetensors file."""
     from .model import load_model as load_modelscope
 
     if safetensors_path is None:
@@ -127,3 +115,69 @@ def load_dinov3_model_safetensors(model_name, safetensors_path):
 
     model = load_modelscope(model_name=model_name, safetensors_path=safetensors_path)
     return model
+
+
+_CLS_DIM_TO_ENCODER = {
+    384: 'dinov3_vits16',
+    768: 'dinov3_vitb16',
+    1024: 'dinov3_vitl16',
+}
+
+
+def infer_encoder_from_bank(cls_banks):
+    """Infer the encoder model name from the CLS token dimension in the memory bank."""
+    cls_dim = cls_banks[-1].shape[-1]
+    encoder_name = _CLS_DIM_TO_ENCODER.get(cls_dim)
+    if encoder_name is None:
+        raise ValueError(f"Unknown CLS dimension {cls_dim}; expected one of {list(_CLS_DIM_TO_ENCODER.keys())}")
+    return encoder_name
+
+
+def resolve_encoder_weight(encoder_name, weight_search_paths=None):
+    """Resolve the weight file path for the given encoder name.
+
+    Args:
+        encoder_name: e.g. 'dinov3_vitb16'
+        weight_search_paths: dict of search paths (defaults to WEIGHT_SEARCH_PATHS from config)
+
+    Returns:
+        Path to the weight file.
+
+    Raises:
+        FileNotFoundError: if no weight file is found.
+    """
+    if weight_search_paths is None:
+        weight_search_paths = WEIGHT_SEARCH_PATHS
+
+    for p in weight_search_paths.get(encoder_name, []):
+        if os.path.exists(p):
+            return p
+
+    raise FileNotFoundError(f"Cannot find weight file for {encoder_name}")
+
+
+def load_encoder_for_inference(encoder_name, weight_path, device='cpu'):
+    """Load encoder + return both model and format string, used by inference threads."""
+    fmt = detect_weight_format(weight_path)
+    model = load_model(model_name=encoder_name, weight_path=weight_path, device=device)
+    return model, fmt
+
+
+def load_encoder_from_bank(bank_data, device='cpu', weight_search_paths=None):
+    """Load encoder by auto-detecting model from memory bank CLS dimension.
+
+    Args:
+        bank_data: dict loaded from a memory bank .pth file (must contain 'cls_banks')
+        device: target device
+        weight_search_paths: dict mapping encoder_name -> list of candidate weight paths
+
+    Returns:
+        (encoder, encoder_name, format_string)
+    """
+    import torch
+
+    cls_banks = bank_data['cls_banks']
+    encoder_name = infer_encoder_from_bank(cls_banks)
+    weight_path = resolve_encoder_weight(encoder_name, weight_search_paths)
+    encoder, fmt = load_encoder_for_inference(encoder_name, weight_path, device)
+    return encoder, encoder_name, fmt

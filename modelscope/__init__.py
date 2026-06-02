@@ -5,6 +5,10 @@ from .loader import (
     detect_weight_format,
     is_safetensors_path,
     is_modelscope_format,
+    infer_encoder_from_bank,
+    resolve_encoder_weight,
+    load_encoder_for_inference,
+    load_encoder_from_bank,
 )
 from .config import (
     IMAGENET_MEAN, IMAGENET_STD, IMAGENET_MEAN_NP, IMAGENET_STD_NP,
@@ -30,6 +34,10 @@ __all__ = [
     'detect_weight_format',
     'is_safetensors_path',
     'is_modelscope_format',
+    'infer_encoder_from_bank',
+    'resolve_encoder_weight',
+    'load_encoder_for_inference',
+    'load_encoder_from_bank',
     'IMAGENET_MEAN', 'IMAGENET_STD', 'IMAGENET_MEAN_NP', 'IMAGENET_STD_NP',
     'MODEL_NAMES', 'LAYER_CONFIGS', 'EMBED_DIMS',
     'WEIGHT_SEARCH_PATHS', 'ENCODER_WEIGHT_MAP', 'find_weight_path',

@@ -16,6 +16,7 @@ from .config import (
     LAYER_CONFIGS, DEFAULT_ONNX_IMG_SIZE, DEFAULT_RESIZE_MASK,
     DEFAULT_BANK_PATH, DEFAULT_ONNX_DIR, find_weight_path,
 )
+from .dataset_v2 import get_gaussian_kernel
 
 
 class RADONNXModel(nn.Module):
@@ -59,25 +60,15 @@ class RADONNXModel(nn.Module):
         self.w = w
         self.L = L
         self.N = N
+        self.gaussian_kernel_size = gaussian_kernel_size
 
         if use_positional_bank:
             pos_indices, pos_counts = self._precompute_position_indices(h, w, pos_radius)
             self.register_buffer('pos_indices', pos_indices)
             self.register_buffer('pos_counts', pos_counts)
 
-        gaussian_kernel = self._create_gaussian_kernel(gaussian_kernel_size, gaussian_sigma)
-        self.register_buffer('gaussian_kernel', gaussian_kernel)
-
-    def _create_gaussian_kernel(self, kernel_size, sigma):
-        ax = torch.arange(-kernel_size // 2 + 1., kernel_size // 2 + 1.)
-        xx = ax.repeat(kernel_size).view(kernel_size, -1)
-        yy = ax.view(-1, 1).repeat(1, kernel_size)
-
-        kernel = torch.exp(-(xx**2 + yy**2) / (2. * sigma**2))
-        kernel = kernel / kernel.sum()
-        kernel = kernel.view(1, 1, kernel_size, kernel_size)
-
-        return kernel
+        gaussian = get_gaussian_kernel(gaussian_kernel_size, gaussian_sigma)
+        self.register_buffer('gaussian_kernel', gaussian.weight.data)
 
     def _precompute_position_indices(self, h, w, radius):
         L = h * w
@@ -152,7 +143,7 @@ class RADONNXModel(nn.Module):
             align_corners=False
         )
 
-        anomaly_map = F.conv2d(anomaly_map, self.gaussian_kernel, padding=2)
+        anomaly_map = F.conv2d(anomaly_map, self.gaussian_kernel, padding=self.gaussian_kernel_size // 2)
 
         return anomaly_map.squeeze(1)
 
