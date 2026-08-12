@@ -4,6 +4,17 @@
     "permission": {
     "bash": "ask"
   },
+  "mcp": {
+    "brave-search": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "@brave/brave-search-mcp-server", "--transport", "http"],
+      "env": {
+        "BRAVE_API_KEY": "YOUR_API_KEY_HERE"
+      },
+      "enabled": true
+    }
+  },
   "agent": {
     "coder": {
       "description": "主开发 Agent",
